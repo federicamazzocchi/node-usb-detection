@@ -22,6 +22,7 @@ using namespace std;
  **********************************/
 #define VID_TAG "VID_"
 #define PID_TAG "PID_"
+#define MI_TAG "MI_"
 
 #define LIBRARY_NAME ("setupapi.dll")
 
@@ -251,6 +252,38 @@ void extractVidPid(char * buf, ListResultItem_t * item) {
 }
 
 
+void ExtractSerialNumber(char * buf, ListResultItem_t * item) {
+	if (buf == NULL) {
+		return;
+	}
+
+	if (strstr(buf, MI_TAG) != NULL){
+		return; // ignore multiple-interface devices
+	}
+
+	char* temp;
+	char* token;
+	char* string;
+
+	string = new char[strlen(buf) + 1];
+	memcpy(string, buf, strlen(buf) + 1);
+
+	// expected format:
+	// USB\VID_04e8&PID_503b\0002F9A9828E0F06
+	temp = string;
+	for (int i = 0; i < 3; i++) {
+		token = strtok(temp, "\\");
+		if (token == NULL) {
+			break;
+		}
+		temp = NULL;
+	}
+	item->serialNumber = token;
+
+	delete string;
+}
+
+
 LRESULT CALLBACK DetectCallback(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
 	if (msg == WM_DEVICECHANGE) {
 		if ( DBT_DEVICEARRIVAL == wParam || DBT_DEVICEREMOVECOMPLETE == wParam ) {
@@ -339,11 +372,8 @@ void BuildInitialDeviceList() {
 		DeviceItem_t* item = new DeviceItem_t();
 		item->deviceState = DeviceState_Connect;
 
-		DWORD DataT;
-		DllSetupDiGetDeviceRegistryProperty(hDevInfo, pspDevInfoData, SPDRP_HARDWAREID, &DataT, (PBYTE)buf, MAX_PATH, &nSize);
-
-		AddItemToList(buf, item);
 		ExtractDeviceInfo(hDevInfo, pspDevInfoData, buf, MAX_PATH, &item->deviceParams);
+		AddItemToList(buf, item);
 	}
 
 	if(pspDevInfoData) {
@@ -364,6 +394,8 @@ void ExtractDeviceInfo(HDEVINFO hDevInfo, SP_DEVINFO_DATA* pspDevInfoData, TCHAR
 
 	resultItem->locationId = 0;
 	resultItem->deviceAddress = dummy++;
+
+	ExtractSerialNumber(buf, resultItem);
 
 	// device found
 	if (DllSetupDiGetDeviceRegistryProperty(hDevInfo, pspDevInfoData, SPDRP_FRIENDLYNAME, &DataT, (PBYTE)buf, buffSize, &nSize)) {
@@ -421,15 +453,11 @@ void UpdateDevice(PDEV_BROADCAST_DEVICEINTERFACE pDevInf, WPARAM wParam, DeviceS
 
 			WaitForSingleObject(deviceChangedSentEvent, INFINITE);
 
-			DWORD DataT;
-			DWORD nSize;
-			DllSetupDiGetDeviceRegistryProperty(hDevInfo, pspDevInfoData, SPDRP_HARDWAREID, &DataT, (PBYTE)buf, MAX_PATH, &nSize);
-
 			if(state == DeviceState_Connect) {
 				DeviceItem_t* device = new DeviceItem_t();
 
-				AddItemToList(buf, device);
 				ExtractDeviceInfo(hDevInfo, pspDevInfoData, buf, MAX_PATH, &device->deviceParams);
+				AddItemToList(buf, device);
 
 				currentDevice = &device->deviceParams;
 				isAdded = true;
