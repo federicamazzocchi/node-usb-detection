@@ -252,7 +252,7 @@ void extractVidPid(char * buf, ListResultItem_t * item) {
 }
 
 
-void ExtractSerialNumber(char * buf, ListResultItem_t * item) {
+/*void ExtractSerialNumber(char * buf, ListResultItem_t * item) {
 	if (buf == NULL) {
 		return;
 	}
@@ -281,7 +281,7 @@ void ExtractSerialNumber(char * buf, ListResultItem_t * item) {
 	item->serialNumber = token;
 
 	delete string;
-}
+}*/
 
 
 LRESULT CALLBACK DetectCallback(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
@@ -388,6 +388,7 @@ void BuildInitialDeviceList() {
 
 void ExtractDeviceInfo(HDEVINFO hDevInfo, SP_DEVINFO_DATA* pspDevInfoData, TCHAR* buf, DWORD buffSize, ListResultItem_t* resultItem) {
 
+	HANDLE devHandle;
 	DWORD DataT;
 	DWORD nSize;
 	static int dummy = 1;
@@ -395,7 +396,38 @@ void ExtractDeviceInfo(HDEVINFO hDevInfo, SP_DEVINFO_DATA* pspDevInfoData, TCHAR
 	resultItem->locationId = 0;
 	resultItem->deviceAddress = dummy++;
 
-	ExtractSerialNumber(buf, resultItem);
+	/*CTL_CODE(FILE_DEVICE_UNKNOWN, \
+                       ADB_CTL_GET_SERIAL_NUMBER, \
+                       METHOD_BUFFERED, \
+                       FILE_READ_ACCESS)*/
+
+	devHandle = CreateFile(buf,
+						GENERIC_READ,
+						FILE_SHARE_READ | FILE_SHARE_WRITE,
+						NULL,
+						OPEN_EXISTING,
+						0, NULL);
+	if (INVALID_HANDLE_VALUE != devHandle) {
+		WCHAR wSerialNumber[512];
+		LPDWORD retSize = 0;
+		BOOL ret = DeviceIoControl(devHandle,
+								IOCTL_STORAGE_GET_MEDIA_SERIAL_NUMBER,
+								NULL, 0,
+								wSerialNumber, sizeof(wSerialNumber),
+								&retSize,
+								NULL);
+		CloseHandle(devHandle);
+		if (ret) {
+			const size_t origSize = wcslen(wSerialNumber) + 1;
+			const size_t newSize = origSize * 2;
+			char* serialNumber = new char[newSize];
+			size_t convertedChars = 0;
+			wcstombs_s(&convertedChars, serialNumber, newSize, wSerialNumber, _TRUNCATE);
+			if (convertedChars != 0) {
+				resultItem->serialNumber = serialNumber;
+			}
+		}
+	}
 
 	// device found
 	if (DllSetupDiGetDeviceRegistryProperty(hDevInfo, pspDevInfoData, SPDRP_FRIENDLYNAME, &DataT, (PBYTE)buf, buffSize, &nSize)) {
