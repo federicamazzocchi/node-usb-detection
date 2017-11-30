@@ -6,9 +6,7 @@
   "gypfile": true,
   "scripts": {
     "test": "mocha --timeout 10000",
-    "install": "prebuild-install || node-gyp rebuild",
-    "prebuild": "prebuild --all --strip --verbose",
-    "rebuild": "node-gyp rebuild"
+    "prebuild": "prebuild --all --strip --verbose"
   },
   "repository": {
     "type": "git",
@@ -37,7 +35,7 @@
   },
   "dependencies": {
     "bindings": "1.1.0",
-    "bluebird": "^2.9.27",
+    "bluebird": "^2.11.0",
     "eventemitter2": ">=0.4.11",
     "nan": "^2.2.0",
     "prebuild-install": "^2.3.0"
@@ -46,7 +44,7 @@
     "chai": "^3.0.0",
     "chai-as-promised": "^5.1.0",
     "chalk": "^1.0.0",
-    "mocha": "^2.2.5",
+    "mocha": "^2.5.3",
     "prebuild": "^6.2.2"
   }
 }
